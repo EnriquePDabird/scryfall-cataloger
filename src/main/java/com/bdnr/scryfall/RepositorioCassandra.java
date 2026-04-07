@@ -1,8 +1,9 @@
 package com.bdnr.scryfall;
 
+import java.net.InetSocketAddress;
+
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
-import java.net.InetSocketAddress;
 
 public class RepositorioCassandra{
     private final CqlSession session;
@@ -17,7 +18,7 @@ public class RepositorioCassandra{
             .build();
 
         this.insertStatement = session.prepare(
-            "INSERT INTO cartas (id, name, set_name, mana_costs, type_line, oracle_text, colors, usd_price, eur_price) " +
+            "INSERT INTO cartas (id, name, set_name, mana_cost, type_line, oracle_text, colors, usd_price, eur_price) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
 
