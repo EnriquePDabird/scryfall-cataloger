@@ -17,8 +17,8 @@ public class RepositorioCassandra{
             .build();
 
         this.insertStatement = session.prepare(
-            "INSERT INTO cartas (id, name, set_name, mana_costs, type_line, oracle_text, colors, usd_price) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO cartas (id, name, set_name, mana_costs, type_line, oracle_text, colors, usd_price, eur_price) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
 
         System.out.println("Conectado a Cassandra. Repositorio listo.");
@@ -33,7 +33,8 @@ public class RepositorioCassandra{
             carta.getType_line(),
             carta.getOracle_text(),
             carta.getColors(),
-            carta.getUsd_price()
+            carta.getUsd_price(),
+            carta.getEur_price()
         ));
         System.out.println("Carta guardad: " + carta.getName()+ " (" + carta.getSet_name() + ")");
     }
