@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CartaMtg {
@@ -59,15 +60,18 @@ public class CartaMtg {
      * En lugar de crear una clase separada 'Prices', interceptamos el bloque "prices"
      * cuando Jackson lo lee, extraemos solo el valor "usd" y lo asignamos a nuestra variable.
      */
-    @JsonProperty("prices")
+    @JsonSetter("prices")
     private void desempaquetarPrecios(Map<String, String> prices) {
         if (prices != null) {
-            this.usd_price = prices.getOrDefault("usd", "0.00");
-            this.eur_price = prices.getOrDefault("eur", "0.00");
+            String usd = prices.get("usd");
+            String eur = prices.get("eur");
+            
+            // Ahora comprobamos que no sea nulo Y que tampoco sea la palabra "null"
+            this.usd_price = (usd != null && !usd.equals("null")) ? usd : "0.00";
+            this.eur_price = (eur != null && !eur.equals("null")) ? eur : "0.00";
         } else {
             this.usd_price = "0.00";
             this.eur_price = "0.00";
         }
- 
     }
 }
