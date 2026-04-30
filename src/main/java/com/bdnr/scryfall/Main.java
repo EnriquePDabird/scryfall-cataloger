@@ -156,7 +156,7 @@ public class Main {
      */
     private static void descargarEInsertarBulk(HttpClient client, ObjectMapper mapper, RepositorioCassandra db) {
         try {
-            System.out.println("📡 1. Solicitando URL de descarga a Scryfall...");
+            System.out.println("1. Solicitando URL de descarga a Scryfall...");
             
             HttpRequest requestLink = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.scryfall.com/bulk-data/oracle-cards"))
@@ -201,20 +201,20 @@ public class Main {
 
                     // Dibujamos una barra de progreso cada 5000 cartas
                     if (contador % 5000 == 0) {
-                        System.out.println("   ⚡ Progreso: " + contador + " / " + todasLasCartas.size() + " cartas guardadas...");
+                        System.out.println("Progreso: " + contador + " / " + todasLasCartas.size() + " cartas guardadas...");
                     }
                 }
 
                 long tiempoTotalSegundos = (System.currentTimeMillis() - tiempoInicio) / 1000;
-                System.out.println("🎉 ¡ÉXITO! Base de datos sincronizada completamente.");
-                System.out.println("⏱️ Tiempo total de inyección en Cassandra: " + tiempoTotalSegundos + " segundos.");
+                System.out.println("¡ÉXITO! Base de datos sincronizada completamente.");
+                System.out.println("Tiempo total de inyección en Cassandra: " + tiempoTotalSegundos + " segundos.");
 
             } else {
-                System.out.println("❌ Error al pedir el Bulk Data. Código: " + responseLink.statusCode());
+                System.out.println("Error al pedir el Bulk Data. Código: " + responseLink.statusCode());
             }
 
         } catch (Exception e) {
-            System.out.println("💥 Error crítico durante la sincronización masiva:");
+            System.out.println("Error crítico durante la sincronización masiva:");
             e.printStackTrace();
         }
     }
