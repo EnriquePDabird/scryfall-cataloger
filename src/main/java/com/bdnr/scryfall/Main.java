@@ -33,9 +33,10 @@ public class Main {
                 System.out.println("1. Buscar e insertar una carta nueva");
                 System.out.println("2. Ver todas las cartas en Cassandra");
                 System.out.println("3. Ver cartas por lote al que pertenecen");
-                System.out.println("4. Descargar e inyectar BULK DATA completo"); // Texto actualizado
-                System.out.println("5. Salir del programa");
-                System.out.print("Elige una opción (1-5): "); // Actualizado a 1-5
+                System.out.println("4. Descargar e inyectar BULK DATA completo");
+                System.out.println("5. Iniciar Simulador de Carga (Stress Test)");
+                System.out.println("6. Salir del programa");
+                System.out.print("Elige una opción (1-6): ");
                 String opcion = scanner.nextLine();
 
                 switch (opcion) {
@@ -61,10 +62,22 @@ public class Main {
                         break;
 
                     case "5":
+                        try {
+                            System.out.print("Número de clientes concurrentes (ej. 50): ");
+                            int clientes = Integer.parseInt(scanner.nextLine());
+                            System.out.print("Número de peticiones por cliente (ej. 100): ");
+                            int peticiones = Integer.parseInt(scanner.nextLine());
+                            SimuladorClientes simulador = new SimuladorClientes(db, clientes, peticiones);
+                            simulador.iniciarSimulacion();
+                        } catch (NumberFormatException ex) {
+                            System.out.println("Por favor, introduce números enteros válidos.");
+                        }
+                        break;
+
+                    case "6":
                         salir = true;
                         System.out.println("Cerrando el catálogo. ¡Hasta pronto!");
                         break;
-
 
                     default:
                         System.out.println("Opción no válida.");

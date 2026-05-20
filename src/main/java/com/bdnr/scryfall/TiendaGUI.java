@@ -44,6 +44,11 @@ public class TiendaGUI extends JFrame {
     
     private List<CartaMtg> listaCartasTemporal;
 
+    // Variables para la gráfica
+    private PanelGrafica panelGrafica;
+    private JComboBox<String> comboCartasGrafica;
+    private java.util.Map<String, java.util.UUID> mapaCartasGrafica = new java.util.LinkedHashMap<>();
+
     public TiendaGUI() {
         // Inicializar herramientas
         db = new RepositorioCassandra();
@@ -64,6 +69,8 @@ public class TiendaGUI extends JFrame {
         JTabbedPane pestañas = new JTabbedPane();
         pestañas.addTab("🛒 Comprar/Ingresar Stock", crearPanelCompra());
         pestañas.addTab("📦 Consultar Caja", crearPanelCajas());
+        pestañas.addTab("⚡ Simulador / Stress Test", crearPanelSimulador());
+        pestañas.addTab("📊 Gráfica de Mercado", crearPanelGrafica());
 
         // Consola visual en la parte inferior
         consolaVisor = new JTextArea(10, 50);
@@ -209,6 +216,116 @@ public class TiendaGUI extends JFrame {
         panel.add(panelSuperior, BorderLayout.NORTH);
         panel.add(new JScrollPane(visorResultados), BorderLayout.CENTER);
 
+        return panel;
+    }
+
+    // --- PANEL 3: SIMULADOR DE CARGA ---
+    private JPanel crearPanelSimulador() {
+        JPanel panel = new JPanel(new GridLayout(4, 2, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JTextField txtClientes = new JTextField("50");
+        JTextField txtPeticiones = new JTextField("100");
+        JButton btnIniciar = new JButton("Lanzar Simulador de Clientes");
+
+        btnIniciar.addActionListener(e -> {
+            try {
+                int clientes = Integer.parseInt(txtClientes.getText());
+                int peticiones = Integer.parseInt(txtPeticiones.getText());
+                log("🚀 Lanzando simulador con " + clientes + " clientes haciendo " + peticiones + " peticiones c/u...");
+                
+                // Ejecutamos en un hilo separado para no bloquear la UI
+                new Thread(() -> {
+                    SimuladorClientes simulador = new SimuladorClientes(db, clientes, peticiones);
+                    simulador.iniciarSimulacion();
+                    log("✅ Simulación completada. Revisa la terminal del sistema para ver las métricas (Throughput).");
+                }).start();
+                
+            } catch (NumberFormatException ex) {
+                log("❌ Error: Los valores deben ser números enteros.");
+            }
+        });
+
+        panel.add(new JLabel("Número de Clientes (Hilos):"));
+        panel.add(txtClientes);
+        panel.add(new JLabel("Peticiones por Cliente:"));
+        panel.add(txtPeticiones);
+        panel.add(new JLabel(""));
+        panel.add(btnIniciar);
+
+        return panel;
+    }
+
+    // --- PANEL 4: GRÁFICA DE MERCADO ---
+    private JPanel crearPanelGrafica() {
+        JPanel panel = new JPanel(new BorderLayout(5, 5));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        // Panel superior: selector de carta + botón actualizar
+        JPanel panelSuperior = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 10, 5));
+        comboCartasGrafica = new JComboBox<>();
+        comboCartasGrafica.setPreferredSize(new java.awt.Dimension(350, 28));
+        JButton btnActualizar = new JButton("Actualizar Gráfica");
+        JButton btnCargarCartas = new JButton("🔄 Cargar Cartas");
+
+        panelSuperior.add(new JLabel("Carta:"));
+        panelSuperior.add(comboCartasGrafica);
+        panelSuperior.add(btnCargarCartas);
+        panelSuperior.add(btnActualizar);
+
+        // Panel central: el lienzo de dibujo
+        panelGrafica = new PanelGrafica();
+        panelGrafica.setPreferredSize(new java.awt.Dimension(700, 400));
+
+        // Panel inferior: leyenda de estadísticas
+        JLabel lblStats = new JLabel("  Selecciona una carta y pulsa 'Actualizar Gráfica' para ver su historial de precios.");
+        lblStats.setFont(new Font("SansSerif", Font.ITALIC, 12));
+
+        // Acción: Cargar lista de cartas disponibles de la BD
+        btnCargarCartas.addActionListener(e -> new Thread(() -> {
+            java.util.Map<java.util.UUID, Double> cartas = db.obtenerTodasLasCartasConPrecio();
+            // Para obtener los nombres, consultamos la tabla cartas
+            java.util.Map<java.util.UUID, String> nombres = db.obtenerNombresCartas();
+            SwingUtilities.invokeLater(() -> {
+                comboCartasGrafica.removeAllItems();
+                mapaCartasGrafica.clear();
+                for (java.util.UUID id : cartas.keySet()) {
+                    String nombre = nombres.getOrDefault(id, id.toString());
+                    String display = nombre + String.format(" (€%.2f)", cartas.get(id));
+                    comboCartasGrafica.addItem(display);
+                    mapaCartasGrafica.put(display, id);
+                }
+                log("📊 " + cartas.size() + " cartas cargadas en el selector de gráfica.");
+            });
+        }).start());
+
+        // Acción: Actualizar la gráfica con los datos de Cassandra
+        btnActualizar.addActionListener(e -> {
+            String seleccion = (String) comboCartasGrafica.getSelectedItem();
+            if (seleccion == null || !mapaCartasGrafica.containsKey(seleccion)) {
+                log("⚠️ Selecciona una carta del desplegable (pulsa 'Cargar Cartas' primero).");
+                return;
+            }
+            java.util.UUID cartaId = mapaCartasGrafica.get(seleccion);
+            log("📊 Cargando datos de la gráfica para: " + seleccion);
+
+            new Thread(() -> {
+                RepositorioCassandra.DatosGrafica datos = db.obtenerDatosGrafica(cartaId);
+                int compras = datos.comprasFomo.size();
+                int precios = datos.historial.size();
+                SwingUtilities.invokeLater(() -> {
+                    panelGrafica.actualizarDatos(datos);
+                    lblStats.setText(String.format(
+                        "  📈 %d cambios de precio registrados  |  🔴 %d compras por FOMO detectadas",
+                        precios, compras
+                    ));
+                });
+            }).start();
+        });
+
+        panel.add(panelSuperior, BorderLayout.NORTH);
+        panel.add(panelGrafica, BorderLayout.CENTER);
+        panel.add(lblStats, BorderLayout.SOUTH);
         return panel;
     }
 
