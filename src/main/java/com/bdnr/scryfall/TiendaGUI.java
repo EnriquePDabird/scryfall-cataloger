@@ -48,6 +48,7 @@ public class TiendaGUI extends JFrame {
     private PanelGrafica panelGrafica;
     private JComboBox<String> comboCartasGrafica;
     private java.util.Map<String, java.util.UUID> mapaCartasGrafica = new java.util.LinkedHashMap<>();
+    private JLabel lblBalanceTienda;
 
     public TiendaGUI() {
         // Inicializar herramientas
@@ -64,6 +65,28 @@ public class TiendaGUI extends JFrame {
         // Inicializamos los desplegables vacíos
         comboCajasDestino = new JComboBox<>();
         comboCajasConsulta = new JComboBox<>();
+
+        // Inicializamos balance en cabecera premium
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(new Color(33, 33, 33)); // Dark charcoal
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+
+        JLabel lblTitulo = new JLabel("🏪 MTG Store & Load Simulator");
+        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 18));
+        lblTitulo.setForeground(Color.WHITE);
+
+        lblBalanceTienda = new JLabel("💰 Balance: €0.00");
+        lblBalanceTienda.setFont(new Font("SansSerif", Font.BOLD, 18));
+        lblBalanceTienda.setForeground(new Color(129, 199, 132)); // Light green
+        
+        try {
+            double bal = db.obtenerBalanceActual();
+            lblBalanceTienda.setText("💰 Balance: €" + String.format(java.util.Locale.US, "%.2f", bal));
+        } catch (Exception ignored) {}
+
+        headerPanel.add(lblTitulo, BorderLayout.WEST);
+        headerPanel.add(lblBalanceTienda, BorderLayout.EAST);
+        add(headerPanel, BorderLayout.NORTH);
 
         // Crear el panel de pestañas
         JTabbedPane pestañas = new JTabbedPane();
@@ -161,7 +184,16 @@ public class TiendaGUI extends JFrame {
                     db.guardarCarta(cartaSeleccionada, true);
                     db.ingresarStock(cartaSeleccionada, cajaElegida, cantidad);
                     
-                    log("📥 " + cantidad + "x " + cartaSeleccionada.getName() + " añadidos a [" + cajaElegida + "].");
+                    // Registrar el gasto por compra de inventario
+                    double precioUnitario = 0.0;
+                    if (cartaSeleccionada.getEur_price() != null) {
+                        try { precioUnitario = Double.parseDouble(cartaSeleccionada.getEur_price()); } catch (Exception ignored) {}
+                    }
+                    double costoTotal = precioUnitario * cantidad;
+                    db.registrarMovimientoBalanceConFecha(-costoTotal, "compra_tienda", java.time.Instant.now());
+                    
+                    log("📥 " + cantidad + "x " + cartaSeleccionada.getName() + " añadidos a [" + cajaElegida + "]. Costo total: €" + String.format(java.util.Locale.US, "%.2f", costoTotal));
+                    actualizarBalanceUI();
                 } catch (NumberFormatException ex) {
                     log("❌ Error: La cantidad debe ser un número.");
                 }
@@ -193,10 +225,15 @@ public class TiendaGUI extends JFrame {
 
         JPanel panelSuperior = new JPanel(new FlowLayout());
         JButton btnRevisar = new JButton("Hacer Arqueo de Caja");
+        JButton btnEliminarCaja = new JButton("Eliminar Caja");
+        btnEliminarCaja.setBackground(new Color(211, 47, 47)); // Red
+        btnEliminarCaja.setForeground(Color.WHITE);
+        btnEliminarCaja.setFocusPainted(false);
 
         panelSuperior.add(new JLabel("Elige una Caja:"));
         panelSuperior.add(comboCajasConsulta); // Usamos el segundo desplegable sincronizado
         panelSuperior.add(btnRevisar);
+        panelSuperior.add(btnEliminarCaja);
 
         JTextArea visorResultados = new JTextArea();
         visorResultados.setEditable(false);
@@ -213,6 +250,35 @@ public class TiendaGUI extends JFrame {
             }
         });
 
+        btnEliminarCaja.addActionListener(e -> {
+            if (comboCajasConsulta.getSelectedItem() != null) {
+                String cajaElegida = comboCajasConsulta.getSelectedItem().toString();
+                int confirm = javax.swing.JOptionPane.showConfirmDialog(
+                    this,
+                    "¿Estás seguro de que deseas eliminar por completo la caja '" + cajaElegida + "' y todo su inventario?",
+                    "Confirmar Eliminación",
+                    javax.swing.JOptionPane.YES_NO_OPTION,
+                    javax.swing.JOptionPane.WARNING_MESSAGE
+                );
+                
+                if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                    db.eliminarCaja(cajaElegida);
+                    log("🗑️ Caja '" + cajaElegida + "' eliminada por completo de Cassandra.");
+                    
+                    // Remover de los JComboBox
+                    comboCajasDestino.removeItem(cajaElegida);
+                    comboCajasConsulta.removeItem(cajaElegida);
+                    
+                    // Si ya no quedan cajas, crear una por defecto
+                    if (comboCajasDestino.getItemCount() == 0) {
+                        crearNuevaCaja();
+                    }
+                    
+                    visorResultados.setText("Caja '" + cajaElegida + "' eliminada.");
+                }
+            }
+        });
+
         panel.add(panelSuperior, BorderLayout.NORTH);
         panel.add(new JScrollPane(visorResultados), BorderLayout.CENTER);
 
@@ -221,37 +287,51 @@ public class TiendaGUI extends JFrame {
 
     // --- PANEL 3: SIMULADOR DE CARGA ---
     private JPanel crearPanelSimulador() {
-        JPanel panel = new JPanel(new GridLayout(4, 2, 10, 10));
+        JPanel panel = new JPanel(new BorderLayout(15, 15));
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JTextField txtClientes = new JTextField("50");
-        JTextField txtPeticiones = new JTextField("100");
+        JPanel panelForm = new JPanel(new GridLayout(2, 2, 10, 10));
+        JTextField txtClientes = new JTextField("5");
+        JTextField txtPeticiones = new JTextField("20");
+
         JButton btnIniciar = new JButton("Lanzar Simulador de Clientes");
+        btnIniciar.setFont(new Font("SansSerif", Font.BOLD, 14));
+        btnIniciar.setBackground(new Color(25, 118, 210)); // Royal blue
+        btnIniciar.setForeground(Color.WHITE);
+        btnIniciar.setFocusPainted(false);
 
         btnIniciar.addActionListener(e -> {
             try {
                 int clientes = Integer.parseInt(txtClientes.getText());
                 int peticiones = Integer.parseInt(txtPeticiones.getText());
                 log("🚀 Lanzando simulador con " + clientes + " clientes haciendo " + peticiones + " peticiones c/u...");
+                btnIniciar.setEnabled(false);
                 
-                // Ejecutamos en un hilo separado para no bloquear la UI
                 new Thread(() -> {
-                    SimuladorClientes simulador = new SimuladorClientes(db, clientes, peticiones);
+                    SimuladorClientes simulador = new SimuladorClientes(db, clientes, peticiones, msg -> {
+                        log(msg);
+                        actualizarBalanceUI();
+                    });
                     simulador.iniciarSimulacion();
-                    log("✅ Simulación completada. Revisa la terminal del sistema para ver las métricas (Throughput).");
+                    SwingUtilities.invokeLater(() -> {
+                        btnIniciar.setEnabled(true);
+                    });
+                    actualizarBalanceUI();
                 }).start();
                 
             } catch (NumberFormatException ex) {
                 log("❌ Error: Los valores deben ser números enteros.");
+                btnIniciar.setEnabled(true);
             }
         });
 
-        panel.add(new JLabel("Número de Clientes (Hilos):"));
-        panel.add(txtClientes);
-        panel.add(new JLabel("Peticiones por Cliente:"));
-        panel.add(txtPeticiones);
-        panel.add(new JLabel(""));
-        panel.add(btnIniciar);
+        panelForm.add(new JLabel("Número de Clientes (Hilos):"));
+        panelForm.add(txtClientes);
+        panelForm.add(new JLabel("Peticiones por Cliente:"));
+        panelForm.add(txtPeticiones);
+
+        panel.add(panelForm, BorderLayout.CENTER);
+        panel.add(btnIniciar, BorderLayout.SOUTH);
 
         return panel;
     }
@@ -311,13 +391,21 @@ public class TiendaGUI extends JFrame {
 
             new Thread(() -> {
                 RepositorioCassandra.DatosGrafica datos = db.obtenerDatosGrafica(cartaId);
-                int compras = datos.comprasFomo.size();
+                int compras = 0;
+                int ventas = 0;
+                for (RepositorioCassandra.PuntoHistorico p : datos.transacciones) {
+                    if ("compra".equals(p.tipo)) compras++;
+                    else if ("venta".equals(p.tipo)) ventas++;
+                }
                 int precios = datos.historial.size();
+                
+                final int finalCompras = compras;
+                final int finalVentas = ventas;
                 SwingUtilities.invokeLater(() -> {
                     panelGrafica.actualizarDatos(datos);
                     lblStats.setText(String.format(
-                        "  📈 %d cambios de precio registrados  |  🔴 %d compras por FOMO detectadas",
-                        precios, compras
+                        "  📈 %d cambios de precio registrados  |  🔴 %d compras  |  ⚪ %d ventas a tienda",
+                        precios, finalCompras, finalVentas
                     ));
                 });
             }).start();
@@ -367,6 +455,15 @@ public class TiendaGUI extends JFrame {
                 log("💥 Error de conexión: " + ex.getMessage());
             }
         }).start();
+    }
+
+    private void actualizarBalanceUI() {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                double bal = db.obtenerBalanceActual();
+                lblBalanceTienda.setText("💰 Balance: €" + String.format(java.util.Locale.US, "%.2f", bal));
+            } catch (Exception ignored) {}
+        });
     }
 
     // Método para escribir en nuestra "consola" negra de la interfaz

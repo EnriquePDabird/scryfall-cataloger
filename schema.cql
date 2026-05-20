@@ -40,9 +40,21 @@ CREATE TABLE IF NOT EXISTS historial_precios (
     PRIMARY KEY (carta_id, fecha)
 ) WITH CLUSTERING ORDER BY (fecha DESC);
 
-CREATE TABLE IF NOT EXISTS compras_fomo (
+CREATE TABLE IF NOT EXISTS transacciones (
     carta_id uuid,
     fecha timestamp,
+    tipo text, -- "compra" o "venta"
     precio_eur double,
     PRIMARY KEY (carta_id, fecha)
 ) WITH CLUSTERING ORDER BY (fecha DESC);
+
+CREATE TABLE IF NOT EXISTS balance_tienda (
+    tienda_id text,
+    fecha timestamp,
+    balance double,
+    tipo_operacion text, -- "inicial", "compra_cliente", "venta_cliente", "reabastecimiento"
+    monto double,
+    PRIMARY KEY (tienda_id, fecha)
+) WITH CLUSTERING ORDER BY (fecha DESC);
+
+

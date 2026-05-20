@@ -1,0 +1,17 @@
+com\bdnr\scryfall\RepositorioCassandra$DatosGrafica.class
+com\bdnr\scryfall\ScryfallBulk.class
+com\bdnr\scryfall\SimuladorClientes$PerfilCliente.class
+com\bdnr\scryfall\Main.class
+com\bdnr\scryfall\SimuladorClientes$RelojVirtual.class
+com\bdnr\scryfall\RepositorioCassandra$ItemInventario.class
+com\bdnr\scryfall\Main$1.class
+com\bdnr\scryfall\RepositorioCassandra$PuntoHistorico.class
+com\bdnr\scryfall\RespuestaScryfall.class
+com\bdnr\scryfall\TiendaGUI.class
+com\bdnr\scryfall\CartaMtg.class
+com\bdnr\scryfall\TestCassandraConnection.class
+com\bdnr\scryfall\PanelGrafica$2.class
+com\bdnr\scryfall\PanelGrafica.class
+com\bdnr\scryfall\SimuladorClientes.class
+com\bdnr\scryfall\RepositorioCassandra.class
+com\bdnr\scryfall\PanelGrafica$1.class
